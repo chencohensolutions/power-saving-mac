@@ -24,9 +24,12 @@ fi
 
 # 3. Your signing team (Apple ID added in Xcode → Settings → Accounts)
 if [ -z "$TEAM_ID" ]; then
-  TEAM_ID=$(security find-certificate -a -c "Apple Development" -p 2>/dev/null \
-    | openssl x509 -noout -subject 2>/dev/null \
-    | sed -n 's/.*OU *= *\([A-Z0-9]\{10\}\).*/\1/p' | head -1)
+  for fmt in "-nameopt RFC2253" ""; do
+    TEAM_ID=$(security find-certificate -c "Apple Development" -p 2>/dev/null \
+      | openssl x509 -noout -subject $fmt 2>/dev/null \
+      | sed -n 's/.*OU *= *\([A-Z0-9]\{10\}\).*/\1/p' | head -1)
+    [ -n "$TEAM_ID" ] && break
+  done
 fi
 if [ -z "$TEAM_ID" ]; then
   echo "❌ No Apple Development certificate found."
