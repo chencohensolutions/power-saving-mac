@@ -12,6 +12,7 @@ import io.ktor.client.engine.mock.MockRequestHandler
 import kotlinx.io.IOException
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -21,6 +22,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DashboardControllerTest {
     private val pairing = Pairing("192.168.1.20", 47070, "ABCD2345", "MacBook Pro")
     private val json = headersOf(HttpHeaders.ContentType, "application/json")

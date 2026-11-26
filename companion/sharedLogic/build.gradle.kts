@@ -32,7 +32,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.serialization.json)
+            api(libs.kotlinx.serialization.json) // Pairing is @Serializable; the app stores it as JSON
             implementation(libs.ktor.client.core)
         }
         androidMain.dependencies {
