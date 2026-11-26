@@ -1,0 +1,54 @@
+name: BatteryTime
+options:
+  bundleIdPrefix: com.hencohen
+  deploymentTarget:
+    macOS: "26.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: ${TEAM_ID}
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "4.0"
+    CURRENT_PROJECT_VERSION: "4"
+    ENABLE_HARDENED_RUNTIME: NO
+targets:
+  BatteryTime:
+    type: application
+    platform: macOS
+    sources: [App, Shared]
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: BatteryTime
+        LSUIElement: true
+        AppGroup: $(TeamIdentifierPrefix)com.hencohen.batterytime
+    entitlements:
+      path: App/BatteryTime.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - $(TeamIdentifierPrefix)com.hencohen.batterytime
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hencohen.batterytime
+    dependencies:
+      - target: BatteryTimeControls
+  BatteryTimeControls:
+    type: app-extension
+    platform: macOS
+    sources: [Controls, Shared]
+    info:
+      path: Controls/Info.plist
+      properties:
+        CFBundleDisplayName: BatteryTime
+        AppGroup: $(TeamIdentifierPrefix)com.hencohen.batterytime
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Controls/BatteryTimeControls.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - $(TeamIdentifierPrefix)com.hencohen.batterytime
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hencohen.batterytime.controls

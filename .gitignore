@@ -1,0 +1,6 @@
+build/
+*.xcodeproj/
+App/Info.plist
+Controls/Info.plist
+*.entitlements
+.DS_Store
