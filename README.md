@@ -12,6 +12,7 @@
   - Max: Light, plus power-hungry apps paused
   - Per-app rules, a reason shown next to each limited app, a preview before limits start, "Pause for 1 hour", and a recap after each lid close
 - **Control Center controls** (macOS 26+): Battery Time, Stay On With Lid Closed, Battery Saver, Low Power Mode When Lid Closed
+- **Phone Companion**: see and control all of this from your Android phone while the lid is closed (menu → Phone Companion…, then the app in [companion/](companion/README.md))
 
 ## Install
 Requires macOS 26+, Xcode, and an Apple ID added in Xcode → Settings → Accounts.

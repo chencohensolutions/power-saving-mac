@@ -22,6 +22,10 @@ targets:
         CFBundleDisplayName: BatteryTime
         LSUIElement: true
         AppGroup: $(TeamIdentifierPrefix)com.hencohen.batterytime
+        # Phone Companion (App/CompanionServer.swift): a server on the local network, advertised over Bonjour
+        NSLocalNetworkUsageDescription: BatteryTime lets the companion app on your phone see and control it while the lid is closed.
+        NSBonjourServices:
+          - _batterytime._tcp
     entitlements:
       path: App/BatteryTime.entitlements
       properties:
