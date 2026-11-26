@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Mac app's icon, simplified: a battery ring, a clock hand and a leaf -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- ring track -->
+    <path
+        android:pathData="M54,30a24,24 0,1 1,0 48a24,24 0,1 1,0 -48"
+        android:strokeWidth="6"
+        android:strokeColor="#334CD964"
+        android:fillColor="#00000000" />
+    <!-- ring charge (3/4) -->
+    <path
+        android:pathData="M54,30a24,24 0,1 1,-24 24"
+        android:strokeWidth="6"
+        android:strokeColor="#FF4CD964"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <!-- clock hands -->
+    <path
+        android:pathData="M54,54L54,41M54,54L63,59"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <!-- leaf -->
+    <path
+        android:fillColor="#FF4CD964"
+        android:pathData="M66,70c0,-8 6,-13 14,-13c0,8 -6,13 -14,13z" />
+</vector>

@@ -222,13 +222,15 @@ struct Planned {
 
 // MARK: - App
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CompanionHost {
     private var statusItem: NSStatusItem!
     private var timers: [Timer] = []
     private var source: CFRunLoopSource?
     private var termSource: DispatchSourceSignal?
     private let limiter = Limiter()
     private let defaults = Shared.defaults
+    private let companion = CompanionServer()
+    private var companionWindow: CompanionWindowController?
 
     // ---- Settings ----
     private var preset: Preset {
@@ -268,6 +270,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lidClosedAt: Date?
     private var pctAtClose = 0
     private var maxLimitedWhileClosed = 0
+    private var charging = false
+    private var onAC = false
+    private var minutesLeft = -1      // to empty on battery, to full while charging; -1 while macOS calculates
 
     // MARK: Launch
 
@@ -303,6 +308,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let app = Unmanaged<AppDelegate>.fromOpaque(observer).takeUnretainedValue()
             DispatchQueue.main.async { app.handleCommands() }
         }, Shared.commandNote as CFString, nil, .deliverImmediately)
+
+        companion.host = self
+        if companion.enabled { companion.start() }
 
         lidClosed = isLidClosed()
         refresh()
@@ -570,6 +578,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc private func openCompanion() {
+        if companionWindow == nil { companionWindow = CompanionWindowController(server: companion) }
+        companionWindow?.update()
+        companionWindow?.window?.center()
+        NSApp.activate(ignoringOtherApps: true)
+        companionWindow?.showWindow(nil)
+        companionWindow?.window?.makeKeyAndOrderFront(nil)
+    }
+
     private func setStayAwake(_ on: Bool) {
         let newValue = on ? 1 : 0
         if !sudoPmset(["disablesleep", "\(newValue)"]) {
@@ -696,17 +713,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // ── BatteryTime: Battery Saver ──
         menu.addItem(viewItem(HeaderRow(title: "Battery Saver", value: preset.title, width: menuWidth)))
         let nothingConfigured = preset == .off && rules.isEmpty
-        let status: (String, String, Bool)
-        if activeMode == .never || nothingConfigured {
-            status = ("Limits are off", nothingConfigured ? "Choose a level in Battery Saver Level" : "Active is set to Never", false)
-        } else if isPaused, let until = pauseUntil {
-            status = ("Limits paused", "Until \(timeString(until))", false)
-        } else if active {
-            status = ("Saving power · \(limitedCount) apps limited",
-                      activeMode == .always ? "Always on" : "Because the lid is closed", true)
-        } else {
-            status = ("Limits are off right now", "They start when you close the lid", false)
-        }
+        let status = saverStatus
         menu.addItem(viewItem(StatusRow(title: status.0, subtitle: status.1, accent: status.2, width: menuWidth)))
 
         if activeMode != .never && !nothingConfigured {
@@ -784,9 +791,140 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
 
         // ── Like Apple's menu ──
+        menu.addItem(item(companion.enabled ? "Phone Companion: On…" : "Phone Companion…", #selector(openCompanion)))
         menu.addItem(item("Battery Settings…", #selector(openBatterySettings)))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit BatteryTime", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    /// Battery Saver's status line: title, subtitle, and whether it's working right now (accent)
+    private var saverStatus: (String, String, Bool) {
+        let nothingConfigured = preset == .off && rules.isEmpty
+        if activeMode == .never || nothingConfigured {
+            return ("Limits are off", nothingConfigured ? "Choose a level in Battery Saver Level" : "Active is set to Never", false)
+        } else if isPaused, let until = pauseUntil {
+            return ("Limits paused", "Until \(timeString(until))", false)
+        } else if limitsActive {
+            return ("Saving power · \(limitedCount) apps limited",
+                    activeMode == .always ? "Always on" : "Because the lid is closed", true)
+        } else {
+            return ("Limits are off right now", "They start when you close the lid", false)
+        }
+    }
+
+    // MARK: Phone companion (docs/companion-protocol.md)
+
+    func companionState() -> [String: Any] {
+        let active = limitsActive
+        let status = saverStatus
+        let planned = Dictionary(plan.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+        let r = rules
+        func opt(_ v: Any?) -> Any { v ?? NSNull() }
+        func ms(_ d: Date?) -> Any { opt(d.map { Int64($0.timeIntervalSince1970 * 1000) }) }
+
+        // The apps the Mac menu shows: using significant energy, then rule apps and limited apps not in that list
+        var apps: [[String: Any]] = []
+        var seen = Set<String>()
+        func add(_ name: String, power: Double) {
+            guard seen.insert(name).inserted else { return }
+            let p = planned[name]
+            apps.append([
+                "name": name,
+                "power": (power * 10).rounded() / 10,
+                "action": opt(p?.action.rawValue),
+                "reason": opt(p?.reason),
+                "rule": opt(r[name]?.rawValue),
+                "limitedNow": active && (p.map { $0.action != .none } ?? false),
+            ])
+        }
+        for g in groups where g.power >= 10 { add(g.name, power: g.power) }
+        for p in plan { add(p.name, power: groups.first(where: { $0.name == p.name })?.power ?? 0) }
+
+        let candidates = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.processIdentifier != getpid() }
+            .compactMap { $0.localizedName }
+            .filter { !systemNames.contains($0) }
+
+        return [
+            "v": CompanionServer.apiVersion,
+            "mac": ["name": companion.macName],
+            "battery": [
+                "percent": lastPct,
+                "charging": charging,
+                "onAC": onAC,
+                "minutes": opt(minutesLeft >= 0 ? minutesLeft : nil),
+                "timeText": timeText,
+                "powerSource": powerSourceText.replacingOccurrences(of: "Power Source: ", with: ""),
+            ],
+            "lid": ["closed": lidClosed, "closedSince": ms(lidClosedAt)],
+            "stayAwake": sleepDisabled,
+            "lowPowerMode": ProcessInfo.processInfo.isLowPowerModeEnabled,
+            "lowPowerWhenLidClosed": ecoEnabled,
+            "saver": [
+                "preset": preset.rawValue,
+                "activeMode": activeMode.rawValue,
+                "active": active,
+                "pausedUntil": ms(isPaused ? pauseUntil : nil),
+                "limitedCount": limitedCount,
+                "status": status.0,
+                "statusDetail": status.1,
+                "otherAppsOnECores": preset.allECores ? otherCount : 0,
+            ],
+            "apps": apps,
+            "rules": r.mapValues { $0.rawValue },
+            "runningApps": Array(Set(candidates)).sorted(),
+            "lastRecap": opt(defaults.string(forKey: "lastRecap")),
+            "time": ms(Date()),
+        ]
+    }
+
+    func companionCommand(_ c: [String: Any]) -> String? {
+        let type = c["type"] as? String ?? ""
+        let on = c["on"] as? Bool
+        switch type {
+        case "setStayAwake":
+            guard let on = on else { return "Missing on" }
+            setStayAwake(on)
+        case "setLowPowerMode":
+            guard let on = on else { return "Missing on" }
+            if on != ProcessInfo.processInfo.isLowPowerModeEnabled { toggleLowPowerNow() }
+        case "setLowPowerWhenLidClosed":
+            guard let on = on else { return "Missing on" }
+            if on != ecoEnabled { toggleEco() }
+        case "setPreset":
+            guard let p = Preset(rawValue: c["preset"] as? String ?? "") else { return "Unknown preset" }
+            preset = p; tracked = [:]; computeAndApply()
+        case "setActiveMode":
+            guard let m = ActiveMode(rawValue: c["mode"] as? String ?? "") else { return "Unknown mode" }
+            activeMode = m; computeAndApply()
+        case "pauseLimits":
+            let minutes = Swift.min(Swift.max(c["minutes"] as? Int ?? 60, 1), 24 * 60)
+            pauseUntil = Date().addingTimeInterval(TimeInterval(minutes * 60)); computeAndApply()
+        case "resumeLimits":
+            resume()
+        case "setAppRule":
+            guard let name = c["app"] as? String, !name.isEmpty else { return "Missing app" }
+            let raw = c["action"] as? String ?? ""
+            var r = rules
+            if raw == "auto" { r.removeValue(forKey: name) }
+            else if let a = LimitAction(rawValue: raw) { r[name] = a }
+            else { return "Unknown action" }
+            rules = r
+            tracked.removeValue(forKey: name)
+            computeAndApply()
+        case "refresh":
+            sample()
+        default:
+            return "Unknown command"
+        }
+        refresh()
+        return nil
+    }
+
+    func companionIcon(app name: String) -> NSImage? {
+        if let g = groups.first(where: { $0.name == name }), let i = g.icon { return i }
+        if let p = plan.first(where: { $0.name == name }), let i = p.icon { return i }
+        return NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == name })?.icon
     }
 
     // MARK: Battery state + menu bar title
@@ -820,8 +958,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let max = desc[kIOPSMaxCapacityKey] as? Int ?? 100
         let pct = max > 0 ? cur * 100 / max : cur
         lastPct = pct
-        let charging = desc[kIOPSIsChargingKey] as? Bool ?? false
-        let onAC = (desc[kIOPSPowerSourceStateKey] as? String) == kIOPSACPowerValue
+        charging = desc[kIOPSIsChargingKey] as? Bool ?? false
+        onAC = (desc[kIOPSPowerSourceStateKey] as? String) == kIOPSACPowerValue
+        minutesLeft = (charging ? desc[kIOPSTimeToFullChargeKey] : desc[kIOPSTimeToEmptyKey]) as? Int ?? -1
         powerSourceText = onAC ? "Power Source: Power Adapter" : "Power Source: Battery"
 
         let level = pct >= 88 ? "100" : pct >= 63 ? "75" : pct >= 38 ? "50" : pct >= 13 ? "25" : "0"

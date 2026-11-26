@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- BatteryTime on the Mac serves plain HTTP on the local network (docs/companion-protocol.md): its address is a
+     local IP that changes, so cleartext can't be limited to a domain. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
