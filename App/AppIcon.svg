@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#1B2A4E"/>
+      <stop offset="1" stop-color="#0B1226"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.55">
+      <stop offset="0" stop-color="#2FD29A" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#2FD29A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="arc" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#1FBF8F"/>
+      <stop offset="1" stop-color="#A6F36B"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#243A66"/>
+      <stop offset="1" stop-color="#16244A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- full-bleed background (macOS applies the rounded mask) -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- clock face -->
+  <circle cx="512" cy="512" r="300" fill="url(#face)"/>
+
+  <!-- battery ring: track + 75% charge -->
+  <circle cx="512" cy="512" r="300" fill="none" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="56"/>
+  <circle cx="512" cy="512" r="300" fill="none" stroke="url(#arc)" stroke-width="56"
+          stroke-linecap="round" stroke-dasharray="1414 1885" transform="rotate(-90 512 512)"/>
+
+  <!-- hour ticks -->
+  <g stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="14" stroke-linecap="round">
+    <line x1="512" y1="268" x2="512" y2="300"/>
+    <line x1="756" y1="512" x2="724" y2="512"/>
+    <line x1="512" y1="756" x2="512" y2="724"/>
+    <line x1="268" y1="512" x2="300" y2="512"/>
+  </g>
+
+  <!-- clock hands -->
+  <g stroke="#FFFFFF" stroke-linecap="round">
+    <line x1="512" y1="512" x2="512" y2="352" stroke-width="30"/>
+    <line x1="512" y1="512" x2="622" y2="580" stroke-width="30"/>
+  </g>
+  <circle cx="512" cy="512" r="26" fill="#A6F36B"/>
+
+  <!-- battery cap at the top of the ring -->
+  <rect x="462" y="154" width="100" height="44" rx="16" fill="#A6F36B"/>
+
+  <!-- small leaf (power saving) -->
+  <g transform="translate(512 652)">
+    <path d="M-44 20 C-44 -30 0 -54 52 -50 C56 0 26 40 -24 40 C-32 40 -40 34 -44 20 Z" fill="#2FD29A"/>
+    <path d="M-36 30 C-10 6 12 -14 40 -40" stroke="#16244A" stroke-width="8" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>
